@@ -3,6 +3,7 @@
     "vercel-build": "echo 'Static site'"
   },
   "dependencies": {
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "tesseract.js": "^7.0.0"
   }
 }
