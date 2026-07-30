@@ -14,16 +14,20 @@ module.exports = withAuth(async function handler(req, res) {
 
   const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
   const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const OCR_KEY = process.env.OCR_SPACE_API_KEY || 'helloworld';
 
   try {
-    const { images } = req.body;
+    const { images, ocrText } = req.body;
     const imageCount = images?.length || 0;
-    if (imageCount === 0) return res.status(400).json({ error: 'No images provided' });
+    if (imageCount === 0 && !ocrText) {
+      return res.status(400).json({ error: 'No images or text provided' });
+    }
 
-    let extractedText = '';
+    // If client already ran OCR, use that text directly
+    let extractedText = ocrText || '';
 
-    // === Method 1: Try Gemini (fast, accurate, but quota-limited) ===
-    if (GEMINI_KEY) {
+    // Fall back to server-side OCR if no pre-extracted text
+    if (!extractedText && imageCount > 0) {
       const rawData = images[0].replace(/^data:image\/\w+;base64,/, '');
       const mimeType = images[0].startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
 
@@ -55,22 +59,27 @@ module.exports = withAuth(async function handler(req, res) {
       }
     }
 
-    // === Method 2: OCR.space (free, no API key needed, unlimited) ===
+    // === Method 2: OCR.space (free OCR, no API key needed) ===
     if (!extractedText) {
       try {
-        const base64Data = images[0].includes('base64,')
-          ? images[0].split('base64,')[1]
-          : images[0];
+        // Extract the correct MIME type and base64 data
+        const mimeMatch = images[0].match(/^data:(image\/\w+);base64,(.+)$/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+        const base64Data = mimeMatch ? mimeMatch[2] : images[0].replace(/^data:image\/\w+;base64,/, '');
 
         const formData = new URLSearchParams();
-        formData.append('base64Image', `data:image/png;base64,${base64Data}`);
+        formData.append('base64Image', `data:${mimeType};base64,${base64Data}`);
         formData.append('language', 'eng');
         formData.append('isOverlayRequired', 'false');
         formData.append('OCREngine', '2');
+        formData.append('scale', 'true');
 
         const ocrResp = await fetch('https://api.ocr.space/parse/image', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'apikey': OCR_KEY,
+          },
           body: formData.toString(),
         });
 
