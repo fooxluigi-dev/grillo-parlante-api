@@ -31,6 +31,31 @@ module.exports = withAuth(async function handler(req, res) {
       const rawData = images[0].replace(/^data:image\/\w+;base64,/, '');
       const mimeType = images[0].startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
 
+      // Resize large images with sharp before OCR
+      let imageBuffer;
+      try {
+        const sharp = require('sharp');
+        imageBuffer = Buffer.from(rawData, 'base64');
+        const img = sharp(imageBuffer);
+        const meta = await img.metadata();
+        if (meta.width > 1200) {
+          const resized = await img.resize(1200, null, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 }).toBuffer();
+          const resizedB64 = resized.toString('base64');
+          console.log(`Image resized: ${meta.width}x${meta.height} → sharp output (${(resized.length/1024).toFixed(0)}KB)`);
+          // Use resized for Gemini
+          var geminiB64 = resizedB64;
+          var geminiMime = 'image/jpeg';
+        } else {
+          var geminiB64 = rawData;
+          var geminiMime = mimeType;
+        }
+      } catch(e) {
+        console.log('Sharp not available, using original image');
+        var geminiB64 = rawData;
+        var geminiMime = mimeType;
+      }
+
       for (const modelName of GEMINI_MODELS) {
         try {
           const resp = await fetch(
@@ -42,7 +67,7 @@ module.exports = withAuth(async function handler(req, res) {
                 contents: [{
                   parts: [
                     { text: 'Extract ALL text visible in this booking confirmation. Return every word, number, and date you can see.' },
-                    { inline_data: { mime_type: mimeType, data: rawData } }
+                    { inline_data: { mime_type: geminiMime, data: geminiB64 } }
                   ]
                 }],
                 generationConfig: { maxOutputTokens: 2048 }
@@ -62,13 +87,8 @@ module.exports = withAuth(async function handler(req, res) {
     // === Method 2: OCR.space (free OCR, no API key needed) ===
     if (!extractedText) {
       try {
-        // Extract the correct MIME type and base64 data
-        const mimeMatch = images[0].match(/^data:(image\/\w+);base64,(.+)$/);
-        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-        const base64Data = mimeMatch ? mimeMatch[2] : images[0].replace(/^data:image\/\w+;base64,/, '');
-
         const formData = new URLSearchParams();
-        formData.append('base64Image', `data:${mimeType};base64,${base64Data}`);
+        formData.append('base64Image', `data:${geminiMime};base64,${geminiB64}`);
         formData.append('language', 'eng');
         formData.append('isOverlayRequired', 'false');
         formData.append('OCREngine', '2');
