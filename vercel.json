@@ -8,6 +8,9 @@
     },
     "api/parse-booking.js": {
       "maxDuration": 30
+    },
+    "api/test-gemini.js": {
+      "maxDuration": 30
     }
   }
 }
