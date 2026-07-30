@@ -7,7 +7,7 @@ const fetch = require('node-fetch');
 const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
-const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-2.0-flash', 'gemini-3.1-flash-lite-image'];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
 
 module.exports = withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
