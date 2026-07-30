@@ -1,19 +1,17 @@
 // API endpoint: parse booking confirmation images using OCR + AI
 // POST /api/parse-booking
 // Body: { images: string[] } — array of base64 data URLs
-// Uses free OCR APIs + Gemini (when quota available) + DeepSeek for parsing
+// Uses OCR.space for text extraction + DeepSeek for parsing
 
 const fetch = require('node-fetch');
 const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
 
 module.exports = withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
   const OCR_KEY = process.env.OCR_SPACE_API_KEY || 'helloworld';
 
   try {
@@ -23,74 +21,37 @@ module.exports = withAuth(async function handler(req, res) {
       return res.status(400).json({ error: 'No images or text provided' });
     }
 
-    // If client already ran OCR, use that text directly
     let extractedText = ocrText || '';
 
-    // Fall back to server-side OCR if no pre-extracted text
+    // Server-side OCR if no pre-extracted text
     if (!extractedText && imageCount > 0) {
       const rawData = images[0].replace(/^data:image\/\w+;base64,/, '');
-      const mimeType = images[0].startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
 
-      // Resize large images with sharp before OCR
-      let imageBuffer;
+      // Resize with sharp first (handles large images, converts to JPEG)
+      let finalB64, finalMime = 'image/jpeg';
       try {
         const sharp = require('sharp');
-        imageBuffer = Buffer.from(rawData, 'base64');
-        const img = sharp(imageBuffer);
+        const buf = Buffer.from(rawData, 'base64');
+        const img = sharp(buf);
         const meta = await img.metadata();
-        if (meta.width > 1200) {
-          const resized = await img.resize(1200, null, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 80 }).toBuffer();
-          const resizedB64 = resized.toString('base64');
-          console.log(`Image resized: ${meta.width}x${meta.height} → sharp output (${(resized.length/1024).toFixed(0)}KB)`);
-          // Use resized for Gemini
-          var geminiB64 = resizedB64;
-          var geminiMime = 'image/jpeg';
+        if (meta.width > 2000) {
+          const resized = await img.resize(2000, null, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+          finalB64 = resized.toString('base64');
+          console.log(`Sharp resized ${meta.width}x${meta.height} → ${(resized.length/1024).toFixed(0)}KB`);
         } else {
-          var geminiB64 = rawData;
-          var geminiMime = mimeType;
+          finalB64 = rawData;
+          finalMime = meta.format === 'png' ? 'image/png' : 'image/jpeg';
         }
       } catch(e) {
-        console.log('Sharp not available, using original image');
-        var geminiB64 = rawData;
-        var geminiMime = mimeType;
+        finalB64 = rawData;
+        console.log('Sharp fallback:', e.message);
       }
 
-      for (const modelName of GEMINI_MODELS) {
-        try {
-          const resp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_KEY}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: 'Extract ALL text visible in this booking confirmation. Return every word, number, and date you can see.' },
-                    { inline_data: { mime_type: geminiMime, data: geminiB64 } }
-                  ]
-                }],
-                generationConfig: { maxOutputTokens: 2048 }
-              }),
-            }
-          );
-
-          if (resp.ok) {
-            const d = await resp.json();
-            extractedText = d?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
-            if (extractedText) break;
-          }
-        } catch (e) { /* try next model */ }
-      }
-    }
-
-    // === Method 2: OCR.space (free OCR, no API key needed) ===
-    if (!extractedText) {
+      // OCR.space
       try {
         const formData = new URLSearchParams();
-        formData.append('base64Image', `data:${geminiMime};base64,${geminiB64}`);
+        formData.append('base64Image', `data:${finalMime};base64,${finalB64}`);
         formData.append('language', 'eng');
-        formData.append('isOverlayRequired', 'false');
         formData.append('OCREngine', '2');
         formData.append('scale', 'true');
 
@@ -115,21 +76,17 @@ module.exports = withAuth(async function handler(req, res) {
       }
     }
 
-    // If both failed, return error
     if (!extractedText) {
       return res.status(200).json({
         destination: 'Unknown',
-        checkIn: '—',
-        checkOut: '—',
-        hotel: '—',
-        confirmation: '—',
+        checkIn: '—', checkOut: '—', hotel: '—', confirmation: '—',
         pages: imageCount,
         _ocrFailed: true,
-        _note: 'Could not read text from your image. Try a clearer screenshot with the booking details visible.',
+        _note: 'Could not read text from your image. Try a clearer screenshot.',
       });
     }
 
-    // === Step 3: DeepSeek parses extracted text ===
+    // DeepSeek parses extracted text
     const response = await fetch(DEEPSEEK_API, {
       method: 'POST',
       headers: {
@@ -168,10 +125,7 @@ If you cannot determine a field, use your best guess. Never return null — alwa
       const errText = await response.text();
       return res.status(200).json({
         destination: extractedText.slice(0, 100).replace(/\n/g, ' ').trim(),
-        checkIn: '—',
-        checkOut: '—',
-        hotel: '—',
-        confirmation: '—',
+        checkIn: '—', checkOut: '—', hotel: '—', confirmation: '—',
         pages: imageCount,
         _rawOcr: extractedText.slice(0, 500),
       });
@@ -191,10 +145,7 @@ If you cannot determine a field, use your best guess. Never return null — alwa
     if (!parsed || !parsed.destination || parsed.destination === 'Unknown') {
       return res.status(200).json({
         destination: extractedText.slice(0, 100).replace(/\n/g, ' ').trim(),
-        checkIn: '—',
-        checkOut: '—',
-        hotel: '—',
-        confirmation: '—',
+        checkIn: '—', checkOut: '—', hotel: '—', confirmation: '—',
         pages: imageCount,
         _rawOcr: extractedText.slice(0, 500),
       });
