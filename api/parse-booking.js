@@ -2,8 +2,13 @@
 // POST /api/parse-booking
 // Body: { images: string[] } — array of base64 data URLs
 
-export default async function handler(req, res) {
-  const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+import { withAuth } from '../lib/auth';
+
+const fetch = require('node-fetch');
+
+const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+
+export default withAuth(async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

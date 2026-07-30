@@ -1,26 +1,21 @@
 // Vercel Serverless Function — Proxies chat to DeepSeek API
+import { withAuth } from '../lib/auth';
+
 const fetch = require('node-fetch');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
-module.exports = async (req, res) => {
-  // CORS headers
+export default withAuth(async function handler(req, res) {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'DeepSeek API key not configured' });
-  }
+  if (!apiKey) return res.status(500).json({ error: 'DeepSeek API key not configured' });
 
   try {
     const { messages, tripContext } = req.body;
@@ -38,28 +33,26 @@ Keep responses friendly, concise, and helpful. Use emojis occasionally. Give spe
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        model: 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages,
+          ...(messages || []),
         ],
-        max_tokens: 1000,
-        temperature: 0.7,
+        temperature: 0.85,
+        max_tokens: 1024,
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('DeepSeek API error:', response.status, errText);
-      return res.status(502).json({ error: 'DeepSeek API error', detail: errText });
+      console.error('DeepSeek chat error:', response.status, errText);
+      return res.status(502).json({ error: 'AI service error' });
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || '🦗 Sorry, I couldn\'t process that. Try again!';
-
-    res.json({ reply });
-  } catch (err) {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(200).json(data);
+  } catch (e) {
+    console.error('Chat error:', e);
+    return res.status(500).json({ error: 'Internal server error' });
   }
-};
+});
