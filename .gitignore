@@ -3,4 +3,3 @@ node_modules/
 .vercel/
 .vercel
 .env*
-lib/auth.js
