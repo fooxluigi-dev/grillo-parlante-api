@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Grillo Parlante — App Mockups</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#fff;padding:40px 20px}
+  h1{text-align:center;font-size:2.2rem;margin-bottom:4px}
+  .sub{text-align:center;color:#888;margin-bottom:40px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:1000px;margin:0 auto}
+  .mockup{background:#faf5ef;border-radius:28px;padding:12px 12px 20px;box-shadow:0 8px 40px rgba(0,0,0,0.3);overflow:hidden}
+  .mockup .status{display:flex;justify-content:space-between;padding:4px 6px 8px;font-size:.7rem;color:#888}
+  .mockup .screen{background:var(--c);border-radius:16px;padding:16px;min-height:500px;display:flex;flex-direction:column}
+  .mockup .label{text-align:center;font-size:.78rem;color:#555;margin-top:10px;font-weight:600}
+  
+  /* Screens */
+  .screen-1{--c:#fff}
+  .screen-2{--c:#fff}
+  .screen-3{--c:#fff}
+  .screen-4{--c:#fff}
+  .screen-5{--c:#fff}
+  .screen-6{--c:#fff}
+  
+  .screen h2{font-size:1.1rem;font-weight:700;color:#2a2018;margin-bottom:4px}
+  .screen p{font-size:.78rem;color:#8a7a68;margin-bottom:12px;line-height:1.4}
+  
+  /* Components */
+  .gp-header{display:flex;align-items:center;gap:6px;margin-bottom:16px}
+  .gp-header .emoji{font-size:1.5rem}
+  .gp-header h2{font-size:1.2rem}
+  
+  .gp-input{width:100%;padding:10px 14px;border:2px solid #e8ddd0;border-radius:30px;font-size:.82rem;background:#f8f2ea;color:#2a2018;outline:none;font-family:inherit}
+  .gp-input:focus{border-color:#e8a832}
+  
+  .gp-btn{padding:10px 20px;border:none;border-radius:16px;background:linear-gradient(135deg,#e8a832,#f5c45a);color:#2a2018;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit}
+  
+  .gp-card{background:#f8f2ea;border-radius:14px;padding:12px;margin-bottom:8px}
+  .gp-card .title{font-size:.82rem;font-weight:700;color:#2a2018}
+  .gp-card .detail{font-size:.72rem;color:#8a7a68;margin-top:2px}
+  .gp-card .row{display:flex;justify-content:space-between;align-items:center}
+  
+  .gp-day{background:#f8f2ea;border-radius:20px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+  .gp-day .date{width:44px;text-align:center}
+  .gp-day .date .num{font-size:1rem;font-weight:800;color:#2a2018}
+  .gp-day .date .day{font-size:.6rem;color:#8a7a68;text-transform:uppercase}
+  .gp-day .info{flex:1}
+  .gp-day .info .title{font-size:.82rem;font-weight:600;color:#2a2018}
+  .gp-day .info .desc{font-size:.7rem;color:#8a7a68}
+  .gp-day .icon{font-size:1.4rem}
+  
+  .gp-chat-bubble{background:#f8f2ea;border-radius:8px 16px 16px 16px;padding:10px 14px;margin-bottom:8px;max-width:85%;align-self:flex-start}
+  .gp-chat-bubble.mine{align-self:flex-end;background:linear-gradient(135deg,#e8a832,#f5c45a);border-radius:16px 8px 16px 16px}
+  .gp-chat-bubble.mine p{color:#2a2018}
+  .gp-chat-bubble p{font-size:.78rem;color:#2a2018}
+  .gp-chat-bubble .time{font-size:.6rem;color:#8a7a68;margin-top:4px;text-align:right}
+  .gp-chat-bubble.mine .time{color:#8a6a20}
+  
+  .gp-nav{display:flex;justify-content:space-around;padding:8px 0 0;border-top:1px solid #e8ddd0;margin-top:auto}
+  .gp-nav .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.55rem;color:#8a7a68;cursor:pointer}
+  .gp-nav .nav-item.active{color:#e8a832}
+  .gp-nav .nav-item .ni-icon{font-size:1.1rem}
+  
+  .gp-badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:.6rem;font-weight:700;background:rgba(232,168,50,0.12);color:#e8a832}
+  
+  .gp-notif{display:flex;gap:10px;padding:10px;border-radius:12px;background:#f8f2ea;margin-bottom:6px;align-items:center}
+  .gp-notif .icon{font-size:1.2rem}
+  .gp-notif .text{flex:1}
+  .gp-notif .text .title{font-size:.78rem;font-weight:600;color:#2a2018}
+  .gp-notif .text .desc{font-size:.68rem;color:#8a7a68}
+  .gp-notif .time{font-size:.6rem;color:#8a7a68}
+</style>
+</head>
+<body>
+<h1>🦗 Grillo Parlante</h1>
+<p class="sub">App Mockups — iOS + Android</p>
+
+<div class="grid">
+
+  <!-- Screen 1: Dashboard — Empty (no booking) -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-1">
+      <div class="gp-header">
+        <span class="emoji">🦗</span>
+        <h2>Grillo</h2>
+        <span style="margin-left:auto;background:#e8a832;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">👤</span>
+      </div>
+
+      <!-- Weather widget -->
+      <div style="background:linear-gradient(135deg,#fce8d0,#f5ead8);border-radius:20px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+        <div style="font-size:2rem">☀️</div>
+        <div>
+          <div style="font-size:1.3rem;font-weight:800;color:#2a2018">34° / 24°</div>
+          <div style="font-size:.72rem;color:#8a7a68">Split, Croatia · Sunny all week</div>
+        </div>
+        <span style="margin-left:auto;font-size:.72rem;color:#8a7a68">🌅 06:15</span>
+      </div>
+
+      <!-- Empty state -->
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 0">
+        <div style="font-size:3.5rem">🏖️</div>
+        <p style="font-size:1.1rem;font-weight:700;color:#2a2018">Start your next adventure</p>
+        <p style="font-size:.82rem;color:#8a7a68;text-align:center;max-width:240px">Upload a booking or forward your email and let Grillo build the perfect trip.</p>
+        <button class="gp-btn" style="margin-top:8px">📸 Upload booking</button>
+        <p style="font-size:.72rem;color:#8a7a68;margin-top:4px">✉️ Or forward email</p>
+      </div>
+
+      <!-- Bottom cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#f8f2ea;border-radius:14px;padding:12px;text-align:center">
+          <div style="font-size:1.5rem">🌍</div>
+          <div style="font-size:.72rem;font-weight:600;color:#2a2018;margin-top:4px">Explore ideas</div>
+          <div style="font-size:.62rem;color:#8a7a68">Get inspired</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:14px;padding:12px;text-align:center">
+          <div style="font-size:1.5rem">💶</div>
+          <div style="font-size:.72rem;font-weight:600;color:#2a2018;margin-top:4px">Currency converter</div>
+          <div style="font-size:.62rem;color:#8a7a68">EUR → HRK</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:14px;padding:12px;text-align:center">
+          <div style="font-size:1.5rem">🗣️</div>
+          <div style="font-size:.72rem;font-weight:600;color:#2a2018;margin-top:4px">Phrasebook</div>
+          <div style="font-size:.62rem;color:#8a7a68">Learn the basics</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:14px;padding:12px;text-align:center">
+          <div style="font-size:1.5rem">📝</div>
+          <div style="font-size:.72rem;font-weight:600;color:#2a2018;margin-top:4px">Packing list</div>
+          <div style="font-size:.62rem;color:#8a7a68">Get started</div>
+        </div>
+      </div>
+      
+      <div class="gp-nav" style="margin-top:10px">
+        <div class="nav-item active"><span class="ni-icon">🏠</span>Home</div>
+        <div class="nav-item"><span class="ni-icon">📅</span>Trips</div>
+        <div class="nav-item"><span class="ni-icon">💬</span>Chat</div>
+        <div class="nav-item"><span class="ni-icon">👤</span>Profile</div>
+      </div>
+    </div>
+    <div class="label">🏠 Dashboard — Before booking (empty state)</div>
+  </div>
+
+  <!-- Screen 2: Dashboard — Booked (active) -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-2">
+      <div class="gp-header">
+        <span class="emoji">🦗</span>
+        <h2>Grillo</h2>
+        <span style="margin-left:auto;font-size:.72rem;color:#4caf50">● Queen online</span>
+      </div>
+
+      <!-- Active trip card -->
+      <div style="background:linear-gradient(135deg,#e8a832,#f5c45a);border-radius:20px;padding:16px;margin-bottom:14px;color:#2a2018">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-size:.72rem;font-weight:600;opacity:.7">🇭🇷 NEXT TRIP</div>
+            <div style="font-size:1.4rem;font-weight:900;margin:2px 0 4px">Split, Croatia</div>
+            <div style="font-size:.78rem;opacity:.8">Aug 22 — 28 · Airbnb Maja</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:2rem;font-weight:900;line-height:1">33</div>
+            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">days</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <div style="flex:1;background:rgba(0,0,0,0.1);border-radius:12px;padding:8px;text-align:center;font-size:.7rem;font-weight:600">📅 View trip</div>
+          <div style="flex:1;background:rgba(0,0,0,0.1);border-radius:12px;padding:8px;text-align:center;font-size:.7rem;font-weight:600">🔔 Reminders</div>
+        </div>
+      </div>
+
+      <!-- Weather -->
+      <div style="background:#f8f2ea;border-radius:16px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center">
+        <div style="font-size:1.6rem;margin-right:10px">☀️</div>
+        <div>
+          <div style="font-size:.82rem;font-weight:700;color:#2a2018">34° / 24° · Sunny</div>
+          <div style="font-size:.68rem;color:#8a7a68">Expect 0 rain days during your trip</div>
+        </div>
+        <span style="margin-left:auto;font-size:.68rem;color:#e8a832">→</span>
+      </div>
+
+      <!-- Checklist widget -->
+      <div style="background:#f8f2ea;border-radius:16px;padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:.82rem;font-weight:700;color:#2a2018">✅ Packing checklist</span>
+          <span style="font-size:.68rem;color:#e8a832">5/12 done</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="padding:4px 10px;border-radius:20px;font-size:.65rem;background:#e8a832;color:#fff">✅ Costumi</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:.65rem;background:#e8a832;color:#fff">✅ Crema</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:.65rem;background:#f8f2ea;border:1px solid #e8ddd0;color:#8a7a68">☐ Cappello</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:.65rem;background:#f8f2ea;border:1px solid #e8ddd0;color:#8a7a68">☐ Infradito</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:.65rem;background:#f8f2ea;border:1px solid #e8ddd0;color:#8a7a68">+5 more</span>
+        </div>
+      </div>
+
+      <!-- Chat button -->
+      <div style="background:linear-gradient(135deg,#e8a832,#f5c45a);border-radius:16px;padding:14px;display:flex;align-items:center;gap:10px;cursor:pointer">
+        <div style="font-size:2rem">🦗</div>
+        <div>
+          <div style="font-size:.9rem;font-weight:700;color:#2a2018">Ask Grillo anything</div>
+          <div style="font-size:.72rem;color:#8a6a20">What should we pack? Where to eat? Change the plan...</div>
+        </div>
+        <span style="margin-left:auto;font-size:1.2rem;color:#2a2018">➤</span>
+      </div>
+
+      <!-- Bottom quick actions -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px">
+        <div style="background:#f8f2ea;border-radius:12px;padding:8px;text-align:center">
+          <div style="font-size:1rem">🗺️</div>
+          <div style="font-size:.55rem;color:#8a7a68;margin-top:2px">Maps</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:12px;padding:8px;text-align:center">
+          <div style="font-size:1rem">💰</div>
+          <div style="font-size:.55rem;color:#8a7a68;margin-top:2px">Budget</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:12px;padding:8px;text-align:center">
+          <div style="font-size:1rem">📸</div>
+          <div style="font-size:.55rem;color:#8a7a68;margin-top:2px">Photos</div>
+        </div>
+        <div style="background:#f8f2ea;border-radius:12px;padding:8px;text-align:center">
+          <div style="font-size:1rem">👫</div>
+          <div style="font-size:.55rem;color:#8a7a68;margin-top:2px">Buddies</div>
+        </div>
+      </div>
+      
+      <div class="gp-nav" style="margin-top:8px">
+        <div class="nav-item active"><span class="ni-icon">🏠</span>Home</div>
+        <div class="nav-item"><span class="ni-icon">📅</span>Trips</div>
+        <div class="nav-item"><span class="ni-icon">💬</span>Chat</div>
+        <div class="nav-item"><span class="ni-icon">👤</span>Profile</div>
+      </div>
+    </div>
+    <div class="label">🏠 Dashboard — After booking (active trip)</div>
+  </div>
+
+  <!-- Screen 3: Itinerary -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-3">
+      <div style="display:flex;align-items:center;margin-bottom:12px">
+        <span style="font-size:1.2rem;cursor:pointer">←</span>
+        <h2 style="flex:1;text-align:center;font-size:1rem">Your Trip</h2>
+        <span style="font-size:.82rem;color:#c2553a">🇭🇷 Split</span>
+      </div>
+      <p style="font-size:.72rem;color:#8a7a68;margin-bottom:8px">Aug 22 — 28 · 6 nights · Airbnb Maja</p>
+      
+      <div style="overflow-x:auto;display:flex;gap:6px;padding-bottom:8px;margin-bottom:4px">
+        <div style="padding:6px 14px;border-radius:20px;background:#e8a832;color:#fff;font-size:.7rem;font-weight:600;white-space:nowrap">Sab 22 ✅</div>
+        <div style="padding:6px 14px;border-radius:20px;background:#f8f2ea;color:#8a7a68;font-size:.7rem;white-space:nowrap">Dom 23</div>
+        <div style="padding:6px 14px;border-radius:20px;background:#f8f2ea;color:#8a7a68;font-size:.7rem;white-space:nowrap">Lun 24</div>
+        <div style="padding:6px 14px;border-radius:20px;background:#f8f2ea;color:#8a7a68;font-size:.7rem;white-space:nowrap">Mar 25</div>
+        <div style="padding:6px 14px;border-radius:20px;background:#f8f2ea;color:#8a7a68;font-size:.7rem;white-space:nowrap">Mer 26</div>
+      </div>
+
+      <div class="gp-card" style="border:2px solid #e8a832">
+        <div class="row">
+          <span class="title">📍 Arrivo a Split</span>
+          <span class="gp-badge" style="background:rgba(232,168,50,0.12);color:#e8a832">Today</span>
+        </div>
+        <div class="detail">Check-in 15:00 · Airbnb Mažuranićevo</div>
+        <div class="detail" style="margin-top:4px">🌅 Tramonto Marjan 19:50 · Cena in centro</div>
+      </div>
+
+      <div class="gp-card">
+        <div class="row">
+          <span class="title">🏖️ Bačvice Beach</span>
+          <span style="color:#e8a832;font-size:.72rem">10 min walk</span>
+        </div>
+        <div class="detail">Sabbia, bar, no parcheggio — vai a piedi</div>
+      </div>
+
+      <div class="gp-card">
+        <div class="row">
+          <span class="title">🦗 AI Suggestion</span>
+          <span style="font-size:.6rem;background:rgba(232,168,50,0.1);padding:2px 8px;border-radius:12px">Just now</span>
+        </div>
+        <div class="detail">"Aperitivo sulla Riva alle 19:00. Tramonto spettacolare! 🌅"</div>
+      </div>
+
+      <div class="gp-card">
+        <div class="row">
+          <span class="title">🌤️ Weather</span>
+        </div>
+        <div class="detail">☀️ 34° / 24° — Sunny all week! 🎉</div>
+      </div>
+      
+      <div class="gp-nav" style="margin-top:auto">
+        <div class="nav-item"><span class="ni-icon">🏠</span>Home</div>
+        <div class="nav-item active"><span class="ni-icon">📅</span>Trips</div>
+        <div class="nav-item"><span class="ni-icon">💬</span>Chat</div>
+        <div class="nav-item"><span class="ni-icon">👤</span>Profile</div>
+      </div>
+    </div>
+    <div class="label">📅 Itinerary — Day view with AI suggestions</div>
+  </div>
+
+  <!-- Screen 4: Chat AI -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-4">
+      <div style="display:flex;align-items:center;margin-bottom:12px">
+        <span style="font-size:1.2rem;cursor:pointer">←</span>
+        <div style="flex:1;text-align:center">
+          <div style="font-weight:700;font-size:.9rem;color:#2a2018">🦗 Grillo</div>
+          <div style="font-size:.65rem;color:#4caf50">● Online — 24/7</div>
+        </div>
+        <span style="font-size:.82rem">⋮</span>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;overflow-y:auto;gap:4px;margin-bottom:8px">
+        <div class="gp-chat-bubble">
+          <p>Hey Luigi! Ready for Split? 🎉 You check-in today at 15:00</p>
+          <div class="time">08:30</div>
+        </div>
+        <div class="gp-chat-bubble mine">
+          <p>What's the weather like?</p>
+          <div class="time">08:32</div>
+        </div>
+        <div class="gp-chat-bubble">
+          <p>☀️ 34° today! Perfect for Bačvice. Want me to suggest a plan?</p>
+          <div class="time">08:32</div>
+        </div>
+        <div class="gp-chat-bubble mine">
+          <p>Yes! What should we do today?</p>
+          <div class="time">08:33</div>
+        </div>
+        <div class="gp-chat-bubble" style="border:1px dashed #e8a832">
+          <p>📋 <strong>Today's plan:</strong><br>
+          15:00 — Check-in 🏠<br>
+          16:30 — Bačvice 🏖️<br>
+          19:00 — Aperitivo Riva 🍸<br>
+          20:30 — Cena centro 🍝<br><br>
+          Want me to book a table somewhere?</p>
+          <div class="time">08:33</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="gp-input" placeholder="Ask me anything..." style="margin:0">
+        <button class="gp-btn" style="padding:10px 16px">➤</button>
+      </div>
+    </div>
+    <div class="label">💬 Chat — AI companion in real-time</div>
+  </div>
+
+  <!-- Screen 5: Notifications -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-5">
+      <div style="display:flex;align-items:center;margin-bottom:16px">
+        <span style="font-size:1.2rem;cursor:pointer">←</span>
+        <h2 style="flex:1;text-align:center;font-size:1rem">Notifications</h2>
+        <span style="background:#e8a832;color:#fff;font-size:.65rem;padding:2px 8px;border-radius:12px;font-weight:600">3 new</span>
+      </div>
+
+      <div class="gp-notif">
+        <div class="icon">☀️</div>
+        <div class="text">
+          <div class="title">Good morning! ☀️</div>
+          <div class="desc">34° today. Perfect beach weather. Don't forget sunscreen!</div>
+        </div>
+        <div class="time">08:00</div>
+      </div>
+
+      <div class="gp-notif" style="border:2px solid #e8a832;background:#fff">
+        <div class="icon">⏰</div>
+        <div class="text">
+          <div class="title">Check-in time! 🏠</div>
+          <div class="desc">Your Airbnb is ready at 15:00. Mažuranićevo šetalište 37</div>
+        </div>
+        <div class="time">14:00</div>
+      </div>
+
+      <div class="gp-notif">
+        <div class="icon">📍</div>
+        <div class="text">
+          <div class="title">New suggestion 🦗</div>
+          <div class="desc">There's a hidden gem restaurant 5 min from you. Want to see?</div>
+        </div>
+        <div class="time">16:30</div>
+      </div>
+
+      <div class="gp-notif" style="opacity:.5">
+        <div class="icon">🌈</div>
+        <div class="text">
+          <div class="title">Tomorrow: Vis Island ⛴️</div>
+          <div class="desc">Ferry at 08:00 from Split port. Don't forget your camera!</div>
+        </div>
+        <div class="time">21:00</div>
+      </div>
+      
+      <div class="gp-nav" style="margin-top:auto">
+        <div class="nav-item"><span class="ni-icon">🏠</span>Home</div>
+        <div class="nav-item"><span class="ni-icon">📅</span>Trips</div>
+        <div class="nav-item"><span class="ni-icon">💬</span>Chat</div>
+        <div class="nav-item"><span class="ni-icon">👤</span>Profile</div>
+      </div>
+    </div>
+    <div class="label">🔔 Smart notifications — proactive & helpful</div>
+  </div>
+
+  <!-- Screen 6: Profile + Sync -->
+  <div class="mockup">
+    <div class="status"><span>9:41</span><span>🔋 88%</span></div>
+    <div class="screen screen-6">
+      <h2 style="margin-bottom:4px">Profile</h2>
+      
+      <div style="display:flex;align-items:center;gap:12px;margin:8px 0 16px;padding:12px;background:#f8f2ea;border-radius:16px">
+        <div style="width:44px;height:44px;border-radius:50%;background:#e8a832;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#fff">🐸</div>
+        <div>
+          <div style="font-weight:700;color:#2a2018">Luigi</div>
+          <div style="font-size:.72rem;color:#8a7a68">Premium member 🏆</div>
+        </div>
+        <span style="margin-left:auto;font-size:.82rem;color:#8a7a68">✏️</span>
+      </div>
+
+      <div class="gp-card" style="border:2px solid #e8a832">
+        <div class="row">
+          <span class="title">👫 Travel buddies</span>
+          <span style="color:#4caf50;font-size:.72rem">● Synced</span>
+        </div>
+        <div class="detail" style="margin-top:6px;display:flex;gap:8px">
+          <span style="background:#f8f2ea;padding:6px 12px;border-radius:20px;font-size:.72rem">🧝‍♀️ Queen</span>
+          <span style="background:#e8a832;color:#fff;padding:6px 12px;border-radius:20px;font-size:.72rem">🐸 You</span>
+        </div>
+      </div>
+
+      <div class="gp-card">
+        <div class="title">📊 Your trips</div>
+        <div class="detail" style="margin-top:4px">
+          <div>🇭🇷 Split 2026 — Aug 22-28</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <span class="gp-badge">Active</span>
+            <span class="gp-badge" style="color:#4caf50;background:rgba(76,175,80,0.1)">Synced ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gp-card">
+        <div class="row">
+          <span class="title">🎫 Subscription</span>
+          <span class="gp-badge" style="background:#e8a832;color:#fff">Premium</span>
+        </div>
+        <div class="detail">Valid until Aug 28, 2026</div>
+      </div>
+
+      <div class="gp-card" style="background:none;border:1px dashed #e8ddd0;text-align:center">
+        <p style="font-size:.78rem;color:#8a7a68">📤 Share Grillo with a friend</p>
+      </div>
+
+      <div class="gp-nav">
+        <div class="nav-item"><span class="ni-icon">🏠</span>Home</div>
+        <div class="nav-item"><span class="ni-icon">📅</span>Trips</div>
+        <div class="nav-item"><span class="ni-icon">💬</span>Chat</div>
+        <div class="nav-item active"><span class="ni-icon">👤</span>Profile</div>
+      </div>
+    </div>
+    <div class="label">👤 Profile — Sync with Queen, subscription</div>
+  </div>
+
+</div>
+
+<p style="text-align:center;margin-top:40px;color:#555;font-size:.82rem">🔥 5 core screens · Same palette as the webapp · iOS + Android</p>
+</body>
+</html>
