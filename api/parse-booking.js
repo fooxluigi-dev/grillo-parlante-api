@@ -2,13 +2,12 @@
 // POST /api/parse-booking
 // Body: { images: string[] } — array of base64 data URLs
 
-import { withAuth } from '../lib/auth';
-
 const fetch = require('node-fetch');
+const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
-export default withAuth(async function handler(req, res) {
+module.exports = withAuth(async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -129,4 +128,4 @@ If you cannot read an image, use your best guess from context. Never return null
     console.error('Parse booking error:', e);
     return res.status(500).json({ error: 'Internal error', pages: images?.length || 0 });
   }
-}
+});

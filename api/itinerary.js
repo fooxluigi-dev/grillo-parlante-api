@@ -1,7 +1,7 @@
 // Vercel Serverless Function — AI itinerary generator
 // Focused on QUALITY, not speed — gives DeepSeek time to craft the best holiday
-import { withAuth } from '../lib/auth';
 const fetch = require('node-fetch');
+const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -21,7 +21,7 @@ const DAY_THEMES = [
   'Storia approfondita — castelli, rovine, siti UNESCO, tour guidati',
 ];
 
-export default withAuth(async function handler(req, res) {
+module.exports = withAuth(async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -231,4 +231,4 @@ CREA l'itinerario migliore della mia vita! ✨`;
     console.error('Server error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
-};
+});

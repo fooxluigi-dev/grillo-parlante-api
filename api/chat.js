@@ -1,11 +1,10 @@
 // Vercel Serverless Function — Proxies chat to DeepSeek API
-import { withAuth } from '../lib/auth';
-
 const fetch = require('node-fetch');
+const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
-export default withAuth(async function handler(req, res) {
+module.exports = withAuth(async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
