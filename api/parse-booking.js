@@ -25,54 +25,64 @@ module.exports = withAuth(async function handler(req, res) {
 
     // Server-side OCR if no pre-extracted text
     if (!extractedText && imageCount > 0) {
-      const rawData = images[0].replace(/^data:image\/\w+;base64,/, '');
+      // Process ALL images and concatenate extracted text
+      for (const image of images) {
+        if (!image) continue;
+        const rawData = image.replace(/^data:image\/\w+;base64,/, '');
 
-      // Resize with sharp first (handles large images, converts to JPEG)
-      let finalB64, finalMime = 'image/jpeg';
-      try {
-        const sharp = require('sharp');
-        const buf = Buffer.from(rawData, 'base64');
-        const img = sharp(buf);
-        const meta = await img.metadata();
-        if (meta.width > 2000) {
-          const resized = await img.resize(2000, null, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-          finalB64 = resized.toString('base64');
-          console.log(`Sharp resized ${meta.width}x${meta.height} → ${(resized.length/1024).toFixed(0)}KB`);
-        } else {
-          finalB64 = rawData;
-          finalMime = meta.format === 'png' ? 'image/png' : 'image/jpeg';
-        }
-      } catch(e) {
-        finalB64 = rawData;
-        console.log('Sharp fallback:', e.message);
-      }
-
-      // OCR.space
-      try {
-        const formData = new URLSearchParams();
-        formData.append('base64Image', `data:${finalMime};base64,${finalB64}`);
-        formData.append('language', 'eng');
-        formData.append('OCREngine', '2');
-        formData.append('scale', 'true');
-
-        const ocrResp = await fetch('https://api.ocr.space/parse/image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'apikey': OCR_KEY,
-          },
-          body: formData.toString(),
-        });
-
-        if (ocrResp.ok) {
-          const ocrData = await ocrResp.json();
-          if (ocrData?.ParsedResults?.[0]?.ParsedText) {
-            extractedText = ocrData.ParsedResults[0].ParsedText.trim();
-            console.log(`OCR.space extracted ${extractedText.length} chars`);
+        // Resize with sharp first (handles large images, converts to JPEG)
+        let finalB64, finalMime = 'image/jpeg';
+        try {
+          const sharp = require('sharp');
+          const buf = Buffer.from(rawData, 'base64');
+          const img = sharp(buf);
+          const meta = await img.metadata();
+          if (meta.width > 2000) {
+            const resized = await img.resize(2000, null, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+            finalB64 = resized.toString('base64');
+            console.log(`Sharp resized ${meta.width}x${meta.height} → ${(resized.length/1024).toFixed(0)}KB`);
+          } else {
+            finalB64 = rawData;
+            finalMime = meta.format === 'png' ? 'image/png' : 'image/jpeg';
           }
+        } catch(e) {
+          finalB64 = rawData;
+          console.log('Sharp fallback:', e.message);
         }
-      } catch (ocrErr) {
-        console.error('OCR.space failed:', ocrErr.message);
+
+        // OCR.space
+        try {
+          const formData = new URLSearchParams();
+          formData.append('base64Image', `data:${finalMime};base64,${finalB64}`);
+          formData.append('language', 'eng');
+          formData.append('OCREngine', '2');
+          formData.append('scale', 'true');
+
+          const ocrResp = await fetch('https://api.ocr.space/parse/image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'apikey': OCR_KEY,
+            },
+            body: formData.toString(),
+          });
+
+          if (ocrResp.ok) {
+            const ocrData = await ocrResp.json();
+            if (ocrData?.ParsedResults?.[0]?.ParsedText) {
+              const t = ocrData.ParsedResults[0].ParsedText.trim();
+              if (t) {
+                extractedText += (extractedText ? '\n' : '') + t;
+                console.log(`OCR.space extracted ${t.length} chars from image ${imageCount - images.indexOf(image)}`);
+              }
+            }
+          }
+        } catch (ocrErr) {
+          console.error('OCR.space failed:', ocrErr.message);
+        }
+
+        // Stop if we already have enough text
+        if (extractedText.length > 500) break;
       }
     }
 
