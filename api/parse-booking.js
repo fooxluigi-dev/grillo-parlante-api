@@ -165,6 +165,7 @@ Return ONLY valid JSON with these fields:
   "hotel": "Hotel or property name",
   "confirmation": "Booking reference number",
   "guests": "Number of guests if visible",
+  "guestNames": "Array of guest names if visible, e.g. [\"Mario Rossi\", \"Giulia Bianchi\"]",
   "notes": "Any other useful info"
 }
 If you cannot determine a field, use your best guess. Never return null — always return at least the destination.`,
