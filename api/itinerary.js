@@ -47,20 +47,30 @@ module.exports = withAuth(async function handler(req, res) {
     const interestText = (interests || []).map(i => interestMap[i] || i).join(', ');
 
     // Parse dates (handles "Aug 22", "22/08", "2026-08-22", ISO)
+    // ⚠️ IMPORTANT: new Date('Aug 22') in V8 silently uses year 2001 — must
+    // handle month-name formats EXPLICITLY with the correct year.
     const parseDate = (str, y) => {
       if (!str) return new Date();
+      const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      // "Aug 22" or "Aug 22, 2026" — month name + day (+ optional year)
+      const m1 = String(str).match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/);
+      if (m1 && months[m1[1]] !== undefined) {
+        const yy = m1[3] ? parseInt(m1[3]) : (y || year);
+        return new Date(yy, months[m1[1]], parseInt(m1[2]));
+      }
+      // "22 Aug" or "22 August"
+      const m2 = String(str).match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?/);
+      if (m2 && months[m2[2]] !== undefined) {
+        return new Date(y || year, months[m2[2]], parseInt(m2[1]));
+      }
+      // ISO / numeric: "2026-08-22", "22/08/2026", "22-08"
       const d = new Date(str);
       if (!isNaN(d)) return d;
-      const m = String(str).match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/);
-      if (m) {
-        const day = parseInt(m[1]), month = parseInt(m[2]) - 1;
-        const yy = m[3] ? (parseInt(m[3]) < 100 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : y;
+      const m3 = String(str).match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/);
+      if (m3) {
+        const day = parseInt(m3[1]), month = parseInt(m3[2]) - 1;
+        const yy = m3[3] ? (parseInt(m3[3]) < 100 ? 2000 + parseInt(m3[3]) : parseInt(m3[3])) : (y || year);
         return new Date(yy, month, day);
-      }
-      const parts = String(str).split(' ');
-      const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-      if (parts.length >= 2 && months[parts[0]] !== undefined) {
-        return new Date(y || year, months[parts[0]], parseInt(parts[1]));
       }
       return new Date();
     };
