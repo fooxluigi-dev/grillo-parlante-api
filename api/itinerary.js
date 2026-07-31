@@ -174,6 +174,10 @@ REGOLE:
       days,
       tips,
       _failedDays: failedDays,
+      _debug: {
+        plannerRaw: plannerResp.slice(0, 300),
+        dayRaw: dayReplies[0]?.slice(0, 300) || '',
+      },
     });
 
   } catch (err) {
