@@ -1,17 +1,19 @@
 // API endpoint: parse booking confirmation images using OCR + AI
 // POST /api/parse-booking
 // Body: { images: string[] } — array of base64 data URLs
-// Uses OCR.space for text extraction + DeepSeek for parsing
+// Uses GPT-4o vision (primary) → OCR.space (fallback) for text extraction + DeepSeek for parsing
 
 const fetch = require('node-fetch');
 const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const OPENAI_API = 'https://api.openai.com/v1/chat/completions';
 
 module.exports = withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
   const OCR_KEY = process.env.OCR_SPACE_API_KEY || 'helloworld';
 
   try {
@@ -25,9 +27,55 @@ module.exports = withAuth(async function handler(req, res) {
 
     // Server-side OCR if no pre-extracted text
     if (!extractedText && imageCount > 0) {
-      // Process ALL images and concatenate extracted text
+      // ═══ PRIMARY: GPT-4o vision — reads ALL images directly ═══
+      if (OPENAI_KEY) {
+        try {
+          const parts = images.map(img => ({
+            type: 'image_url',
+            image_url: { url: img, detail: 'high' },
+          }));
+          const openaiResp = await fetch(OPENAI_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${OPENAI_KEY}`,
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              messages: [{
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Extract ALL text visible in these booking confirmation screenshots. Return every word, number, name, date and detail you can see. Preserve the original structure.',
+                  },
+                  ...parts,
+                ],
+              }],
+              max_tokens: 2048,
+            }),
+          });
+
+          if (openaiResp.ok) {
+            const d = await openaiResp.json();
+            const t = d?.choices?.[0]?.message?.content?.trim();
+            if (t) {
+              extractedText = t;
+              console.log(`GPT-4o extracted ${t.length} chars from ${imageCount} image(s)`);
+            }
+          } else {
+            const errText = await openaiResp.text();
+            console.error('GPT-4o vision failed:', openaiResp.status, errText.slice(0, 200));
+          }
+        } catch (gptErr) {
+          console.error('GPT-4o error:', gptErr.message);
+        }
+      }
+
+      // ═══ FALLBACK: OCR.space per image ═══
       for (const image of images) {
         if (!image) continue;
+        if (extractedText.length > 500) break;
         const rawData = image.replace(/^data:image\/\w+;base64,/, '');
 
         // Resize with sharp first (handles large images, converts to JPEG)
