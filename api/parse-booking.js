@@ -152,7 +152,7 @@ module.exports = withAuth(async function handler(req, res) {
         'Authorization': `Bearer ${DEEPSEEK_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        model: 'deepseek-chat',
         messages: [
           {
             role: 'system',

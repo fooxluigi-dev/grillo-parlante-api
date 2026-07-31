@@ -196,7 +196,7 @@ async function callDeepSeek(apiKey, systemPrompt, maxTokens, temperature) {
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-chat',
       messages: [{ role: 'system', content: systemPrompt }],
       max_tokens: maxTokens,
       temperature,
