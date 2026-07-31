@@ -1,31 +1,17 @@
 // Vercel Serverless Function — AI itinerary generator
-// Focused on QUALITY, not speed — gives DeepSeek time to craft the best holiday
+// ARCHITECTURE: parallel day-by-day generation.
+// Instead of one giant 8000-token call (which times out at 60s and produces
+// generic content), we split the work:
+//   1. Planner call → assigns a unique THEME to each day (fast, ~600 tokens)
+//   2. Parallel calls → one per day, each crafts 3-5 rich activities
+//   3. Parallel tips call → personalized advice for the whole trip
+// All parallel calls run concurrently → total ≈ max(single call) ≈ 20-30s
 const fetch = require('node-fetch');
 const { withAuth } = require('../lib/auth');
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
-// Day themes that rotate to ensure variety
-const DAY_THEMES = [
-  'Arrivo & esplorazione iniziale — sistemati, primo giro a piedi, cena tipica',
-  'Cultura & monumenti — musei, chiese, palazzi storici, quartieri antichi',
-  'Natura & panorami — parchi, giardini, punti panoramici, costa, tramonti',
-  'Cibo & tradizioni — mercati locali, street food, ristoranti tipici, cooking class',
-  'Gita fuori porta — escursione nei dintorni, isola, montagna, borgo vicino',
-  'Gemme nascoste — luoghi segreti, street art, quartieri alternativi, artisan',
-  'Avventura & attività — hiking, kayak, bike, sport, esperienze uniche',
-  'Shopping & artigianato — mercatini, boutique, prodotti locali, souvenir',
-  'Relax & benessere — spiaggia, spa, mattinata slow, aperitivo al tramonto',
-  'Vita notturna — bar, musica dal vivo, locali tipici, serata speciale',
-  'Arte & creatività — gallerie, murales, musei d\'arte, workshop fotografici',
-  'Storia approfondita — castelli, rovine, siti UNESCO, tour guidati',
-];
-
 module.exports = withAuth(async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -33,28 +19,45 @@ module.exports = withAuth(async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: 'DeepSeek API key not configured' });
 
   try {
-    const { destination, checkIn, checkOut, hotel, preferences } = req.body;
+    const { destination, checkIn, checkOut, hotel, preferences, type } = req.body;
     if (!destination || !checkIn || !checkOut) {
       return res.status(400).json({ error: 'Missing required fields: destination, checkIn, checkOut' });
     }
 
     const year = req.body.year || new Date().getFullYear();
-
     const prefs = preferences || {};
     const style = prefs.style || 'balanced';
     const interests = prefs.interests || ['food', 'nature', 'history'];
     const vibe = prefs.vibe || 'moderate';
     const wish = prefs.wish || '';
+    // booking type: 'hotel' | 'flight' | 'event' — shapes the itinerary
+    const bookingType = type || 'hotel';
 
     const styleNames = { relaxed: 'Rilassato — slow mornings, no rush', balanced: 'Bilanciato — mix di relax e scoperta', adventure: 'Avventuroso — hiking, action, sport', cultural: 'Culturale — musei, storia, arte' };
     const vibeNames = { budget: 'Budget — risparmio, street food, free activities', moderate: 'Moderato — buon rapporto qualità/prezzo', luxury: 'Lusso — ristoranti stellati, esperienze premium' };
+    const styleText = styleNames[style] || 'Bilanciato';
+    const vibeText = vibeNames[vibe] || 'Moderato';
 
-    // Parse dates
+    const interestMap = {
+      food: '🍝 Cibo & vino', nature: '🌿 Natura', history: '🏛️ Storia & cultura',
+      shopping: '🛍️ Shopping', nightlife: '🍸 Vita notturna', beach: '🏖️ Spiaggia & relax',
+      photography: '📸 Fotografia', sports: '⚽ Sport & attività', art: '🎨 Arte & musei',
+      music: '🎵 Musica & concerti'
+    };
+    const interestText = (interests || []).map(i => interestMap[i] || i).join(', ');
+
+    // Parse dates (handles "Aug 22", "22/08", "2026-08-22", ISO)
     const parseDate = (str, y) => {
       if (!str) return new Date();
       const d = new Date(str);
       if (!isNaN(d)) return d;
-      const parts = str.split(' ');
+      const m = String(str).match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/);
+      if (m) {
+        const day = parseInt(m[1]), month = parseInt(m[2]) - 1;
+        const yy = m[3] ? (parseInt(m[3]) < 100 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : y;
+        return new Date(yy, month, day);
+      }
+      const parts = String(str).split(' ');
       const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
       if (parts.length >= 2 && months[parts[0]] !== undefined) {
         return new Date(y || year, months[parts[0]], parseInt(parts[1]));
@@ -64,171 +67,212 @@ module.exports = withAuth(async function handler(req, res) {
 
     const dIn = parseDate(checkIn);
     const dOut = parseDate(checkOut, year);
-    const totalDays = Math.max(1, Math.ceil((dOut - dIn) / (1000 * 60 * 60 * 24)));
-
-    // Assign themes to each day
-    const themes = [];
+    const totalDays = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)));
+    const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+    const dateLabels = [];
     for (let i = 0; i < totalDays; i++) {
-      if (i === 0) themes.push('Arrivo & primo giro');
-      else if (i === totalDays - 1) themes.push('Ultimo giorno — saluti, souvenir, partenza');
-      else {
-        const used = new Set(themes);
-        const available = DAY_THEMES.filter(t => !used.has(t.split(' — ')[0]));
-        const chosen = available.length > 0
-          ? available[(i - 1) % available.length]
-          : DAY_THEMES[(i - 1) % DAY_THEMES.length];
-        themes.push(chosen);
+      const d = new Date(dIn.getFullYear(), dIn.getMonth(), dIn.getDate() + i);
+      dateLabels.push(dayNames[d.getDay()] + ' ' + d.getDate());
+    }
+
+    // ═══ STEP 1: Planner — assign unique themes to each day ═══
+    const plannerPrompt = `Sei un travel planner esperto. Devi creare il piano giornaliero di un viaggio di ${totalDays} giorni a ${destination} (${checkIn} → ${checkOut}).
+Stile: ${styleText}. Budget: ${vibeText}. Interessi: ${interestText}.${wish ? ` Desiderio speciale: «${wish}»` : ''}
+Tipo di booking: ${bookingType === 'flight' ? 'volo' : bookingType === 'event' ? 'evento (museo/concerto/festival)' : 'hotel/viaggio'}.
+
+Assegna a OGNI giorno un TEMA unico e specifico (mai generico, mai ripetuto). Il giorno 1 è l'arrivo, l'ultimo la partenza.
+Restituisci SOLO un array JSON con ${totalDays} oggetti:
+[{"day": 1, "label": "Titolo breve e accattivante del tema", "location": "Quartiere/zona della città per quel giorno (specifico e diverso ogni giorno)"}, ...]
+
+REGOLE:
+- Temi SPECIFICI e diversificati (es. "Street art nel Raval", "Paella e tapas a El Born", "Gaudí segreto", non "Cultura" o "Giro in città")
+- Se il tipo è EVENT, il giorno dell'evento deve ruotare attorno ad esso
+- Se il desiderio esiste, i giorni devono contribuire a realizzarlo
+- Tutto in italiano`;
+
+    const plannerResp = await callDeepSeek(apiKey, plannerPrompt, 1200, 0.8);
+    let dayThemes = [];
+    try {
+      const arr = extractJson(plannerResp);
+      if (Array.isArray(arr)) dayThemes = arr;
+    } catch (e) { console.error('Planner JSON failed:', e.message); }
+
+    // Fallback themes if planner fails
+    if (dayThemes.length !== totalDays) {
+      const fallbacks = ['Arrivo & primo assaggio della città','Scoperta del centro storico','Tesori nascosti & angoli segreti','Sapori locali & mercati','Gita nei dintorni','Musei & arte','Tempo libero & relax','Vita notturna & musica','Ultimo giorno — souvenir & saluti'];
+      dayThemes = [];
+      for (let i = 0; i < totalDays; i++) {
+        dayThemes.push({
+          day: i + 1,
+          label: i === 0 ? 'Arrivo & primo assaggio della città' : i === totalDays - 1 ? 'Ultimo giorno — souvenir & saluti' : fallbacks[(i - 1) % (fallbacks.length - 2) + 1],
+          location: ''
+        });
       }
     }
 
-    const styleText = styleNames[style] || 'Bilanciato';
-    const vibeText = vibeNames[vibe] || 'Moderato';
-    const interestText = interests.map(i => {
-      const map = {
-        food: '🍝 Cibo & vino',
-        nature: '🌿 Natura',
-        history: '🏛️ Storia & cultura',
-        shopping: '🛍️ Shopping',
-        nightlife: '🍸 Vita notturna',
-        beach: '🏖️ Spiaggia & relax',
-        photography: '📸 Fotografia',
-        sports: '⚽ Sport & attività'
-      };
-      return map[i] || i;
-    }).join(', ');
+    // ═══ STEP 2: Parallel — one call per day + one tips call ═══
+    const dayPromises = dayThemes.map(theme =>
+      callDeepSeek(apiKey, buildDayPrompt({
+        destination, hotel, styleText, vibeText, interestText, wish, bookingType,
+        dayNum: theme.day, totalDays, dateLabel: dateLabels[theme.day - 1],
+        label: theme.label, location: theme.location || '',
+      }), 1500, 0.9)
+    );
+    // Tips call runs in parallel with the days
+    const tipsPromise = callDeepSeek(apiKey, buildTipsPrompt({
+      destination, hotel, styleText, vibeText, interestText, wish, bookingType,
+      totalDays, dateLabels, dayThemes
+    }), 1200, 0.8);
 
-    const dayDescriptions = themes.map((t, i) =>
-      `Day ${i + 1}: ${t}`
-    ).join('\n');
+    const results = await Promise.all([...dayPromises, tipsPromise]);
+    const dayReplies = results.slice(0, totalDays);
+    const tipsReply = results[totalDays];
 
-    // Build the prompt — focused on quality, with concrete examples
-    const systemPrompt = `Sei Grillo 🦗, un'espertissima guida turistica AI. Il tuo compito è creare l'itinerario PERFETTO per ogni viaggiatore, PERSONALIZZATO al 100% in base alle loro risposte.
+    // ═══ STEP 3: Assemble ═══
+    const days = [];
+    let failedDays = 0;
+    for (let i = 0; i < totalDays; i++) {
+      try {
+        const day = extractJson(dayReplies[i]);
+        if (day && day.activities && day.activities.length) {
+          days.push({
+            day: dateLabels[i] || String(i + 1),
+            label: day.label || dayThemes[i].label,
+            icon: day.icon || (i === 0 ? '✈️' : i === totalDays - 1 ? '🏠' : '🗓️'),
+            subtitle: day.subtitle || dayThemes[i].location || `Giorno ${i + 1} a ${destination}`,
+            location: day.location || dayThemes[i].location || '',
+            activities: Array.isArray(day.activities) ? day.activities.slice(0, 5) : [],
+          });
+          continue;
+        }
+        throw new Error('no activities');
+      } catch (e) {
+        failedDays++;
+        days.push({
+          day: dateLabels[i] || String(i + 1),
+          label: dayThemes[i].label,
+          icon: i === 0 ? '✈️' : i === totalDays - 1 ? '🏠' : '🗓️',
+          subtitle: dayThemes[i].location || `Giorno ${i + 1} a ${destination}`,
+          location: dayThemes[i].location || '',
+          activities: [],
+        });
+      }
+    }
+
+    let tips = [];
+    try {
+      const t = extractJson(tipsReply);
+      if (Array.isArray(t)) tips = t.slice(0, 8);
+    } catch (e) { console.error('Tips JSON failed:', e.message); }
+
+    res.json({
+      destination,
+      checkIn, checkOut,
+      totalDays,
+      hotel: hotel || null,
+      type: bookingType,
+      days,
+      tips,
+      _failedDays: failedDays,
+    });
+
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error', detail: err.message });
+  }
+});
+
+// ── Helpers ──
+
+async function callDeepSeek(apiKey, systemPrompt, maxTokens, temperature) {
+  const response = await fetch(DEEPSEEK_API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-v4-flash',
+      messages: [{ role: 'system', content: systemPrompt }],
+      max_tokens: maxTokens,
+      temperature,
+    }),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`DeepSeek ${response.status}: ${errText.slice(0, 150)}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+function extractJson(text) {
+  // Try direct parse first, then find the largest {...} or [...] block
+  try { return JSON.parse(text); } catch {}
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch {} }
+  const arrMatch = text.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch {} }
+  // Last resort: strip markdown fences
+  const fenced = text.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+  try { return JSON.parse(fenced); } catch {}
+  throw new Error('No valid JSON in response');
+}
+
+function buildDayPrompt({ destination, hotel, styleText, vibeText, interestText, wish, bookingType, dayNum, totalDays, dateLabel, label, location }) {
+  const isEventDay = bookingType === 'event' && (dayNum === Math.ceil(totalDays / 2) || String(label).toLowerCase().includes('evento'));
+  return `Sei Grillo 🦗, guida turistica AI di livello mondiale. Crea il contenuto del GIORNO ${dayNum} di ${totalDays} di un viaggio a ${destination}.
 
 DATI VIAGGIO:
 - Destinazione: ${destination}
-- Date: ${checkIn} → ${checkOut} (${totalDays} giorni)
-- Hotel: ${hotel || 'Non specificato'}
-- Stile di viaggio: ${styleText}
-- Budget: ${vibeText}
-- Interessi specifici: ${interestText}
-${wish ? `\n🎯 DESIDERIO SPECIALE DELL'UTENTE (È LA COSA PIÙ IMPORTANTE — DEVE ESSERE IL CUORE DELL'ITINERARIO):\n«${wish}»\n` : ''}
+- Alloggio: ${hotel || 'Non specificato'}
+- Stile: ${styleText} | Budget: ${vibeText}
+- Interessi: ${interestText}
+${wish ? `- Desiderio speciale da realizzare (PRIORITÀ MAX): «${wish}»\n` : ''}
+- Data: ${dateLabel}
 
-FORMATO JSON RICHIESTO — RISPONDERE SOLO CON QUESTO JSON:
+TEMA DEL GIORNO (seguito OBBLIGATORIAMENTE): «${label}»
+${location ? `ZONA CONSIGLIATA: ${location}` : ''}
+${isEventDay ? '⚠️ QUESTO È IL GIORNO DELL\'EVENTO: tutte le attività devono ruotare attorno all\'evento (arrivo, esperienza, dopo-evento).' : ''}
+
+Restituisci SOLO JSON valido:
 {
-  "days": [
-    {
-      "day": "Lun 1",
-      "label": "Arrivo",
-      "icon": "✈️",
-      "subtitle": "Arrivo a [zona specifica]",
-      "location": "Quartiere/zona (cambia ogni giorno)",
-      "activities": [
-        {
-          "time": "Mattina / Pomeriggio / Sera",
-          "icon": "🚶",
-          "title": "NOME ATTIVITÀ con luogo REALE",
-          "desc": "Descrizione breve ma invitante (1 frase)",
-          "price": "~€XX o null"
-        }
-      ]
-    }
-  ],
-  "tips": [
-    {
-      "icon": "☂️",
-      "title": "Titolo consiglio",
-      "desc": "Consiglio specifico e personalizzato"
-    }
+  "label": "Titolo del giorno (riusa il tema, rendilo accattivante)",
+  "icon": "emoji rappresentativo",
+  "subtitle": "Frase evocativa (max 10 parole)",
+  "location": "Quartiere/zona specifica",
+  "activities": [
+    {"time": "Mattina", "icon": "🚶", "title": "NOME ATTIVITÀ CON LUOGO REALE SPECIFICO", "desc": "1 frase invitante e concreta (cosa vedrai/farai)", "price": "~€15" },
+    {"time": "Pranzo", "icon": "🍽️", "title": "Dove mangiare con nome reale/realistico locale", "desc": "1 frase sul cibo/atmosfera", "price": "~€20"}
   ]
 }
 
-IMPORTANTE: genera 5-8 TIPS personalizzati per questo viaggio. I tips devono essere UTILI, SPECIFICI e BASATI sull'itinerario creato. Esempi:
-- Consigli sul meteo nel periodo specifico
-- Cosa mettere in valigia (basato sulle attività)
-- Piatti tipici da assaggiare legati alla destinazione
-- Consigli di trasporto locale
-- Etichetta culturale / usanze locali
-- Consigli di sicurezza
-- App utili per la destinazione
-- Migliori momenti per visitare le attrazioni nell'itinerario
-- Alternative low-cost per esperienze nell'itinerario
+REGOLE D'ORO:
+1. 3-5 attività: Mattina, Pranzo, Pomeriggio, Sera (mai solo "Pranzo" senza luogo)
+2. OGNI attività deve citare un luogo SPECIFICO (monumento, quartiere, ristorante, spiaggia, mercato) — mai generico
+3. Prezzi VARIATI e coerenti col budget (street food ~€8, ristorante ~€25, attività ~€15-40)
+4. Il tema del giorno guida TUTTE le attività — niente fuori tema
+5. Se il desiderio esiste, almeno 1 attività lo realizza
+6. Italiano naturale e accattivante, zero ripetizioni con altri giorni`;
+}
 
-${wish ? `\nPRIORITÀ MAX — IL DESIDERIO DELL'UTENTE VIENE PRIMA DI TUTTO:\n- L'itinerario DEVE ruotare attorno a "${wish}"\n- Se richiede un'esperienza specifica (es. "sushi", "concerto", "barca"), DEVE essere inclusa\n- Tutti i giorni devono contribuire a realizzare questo desiderio\n` : ''}
-REGOLE PER UN ITINERARIO DA 10/10 — SEGUIRE ASSOLUTAMENTE:
-1. OGNI GIORNO DEVE AVERE ATTIVITÀ COMPLETAMENTE DIVERSE — niente ripetizioni di temi o luoghi
-2. Gli INTERESSI dell'utente DEVONO GUIDARE la scelta delle attività — se ha scelto "food & wine" ogni giorno deve includere esperienze culinarie uniche, se ha scelto "nature" ogni giorno deve avere un'attività all'aperto diversa
-3. Lo STILE influenza il ritmo: se "relaxed" meno attività ma più tempo libero, se "adventure" più attività attive
-4. Il BUDGET influenza i prezzi: se "budget" attività gratuite e street food, se "luxury" ristoranti rinomati e esperienze esclusive
-5. OGNI attività DEVE nominare un LUOGO SPECIFICO REALE (ristorante, monumento, quartiere, spiaggia, museo, parco)
-6. MAI scrivere solo "Pranzo" o "Cena" — specifica SEMPRE DOVE (es. "Pranzo da Trattoria Da Mario")
-7. Se non conosci un posto vero, INVENTANE uno con nome realistico locale
-8. Location (quartiere/zona) DIVERSO ogni giorno
-9. Ogni giorno 3-5 attività (coprendo mattina, pranzo, pomeriggio, sera)
-10. Titoli invitanti che fanno venire voglia di partire SUBITO
-11. Tutto in ITALIANO
+function buildTipsPrompt({ destination, hotel, styleText, vibeText, interestText, wish, bookingType, totalDays, dateLabels, dayThemes }) {
+  const themesText = dayThemes.map(t => `Giorno ${t.day} (${dateLabels[t.day - 1]}): ${t.label}`).join('\n');
+  return `Sei Grillo 🦗, guida turistica AI. Genera CONSIGLI PERSONALIZZATI per un viaggio di ${totalDays} giorni a ${destination}.
 
-ASSOLUTAMENTE VIETATO:
-- Giorni tutti uguali con solo il titolo diverso
-- Ripetere lo stesso tipo di attività in giorni diversi
-- Scrivere "Pranzo" senza dire dove
-- Mettere lo stesso prezzo per tutte le attività
-- Usare descrizioni generiche come "visita la città"
-- NOME CHIAVI DUPLICATE in uno stesso oggetto JSON (es. due "icon" nella stessa activity)`;
+CONTESTO:
+- Alloggio: ${hotel || 'Non specificato'} | Stile: ${styleText} | Budget: ${vibeText}
+- Interessi: ${interestText}
+${wish ? `- Desiderio speciale: «${wish}»\n` : ''}
+- Tipo booking: ${bookingType}
+- PIANO GIORNI:
+${themesText}
 
-    const userPrompt = `Ciao Grillo! 🦗 Devo organizzare il viaggio PERFETTO a ${destination} (${checkIn} → ${checkOut}, ${totalDays} giorni)${hotel ? `, alloggio al ${hotel}` : ''}.
+Restituisci SOLO un array JSON di 5-7 consigli:
+[{"icon": "☂️", "title": "Titolo consiglio", "desc": "Consiglio SPECIFICO per questa destinazione/periodo (1-2 frasi, con nomi reali quando possibile)"}]
 
-Il mio stile è ${styleText} e il budget è ${vibeText}. Mi interessano: ${interestText}.${wish ? `\n\nMA SOPRATTUTTO, QUESTO È IL MIO SOGNO — DEVI REALIZZARLO:\n«${wish}»` : ''}
-
-Ogni giorno ha un tema specifico. SEGUI QUESTO SCHEMA:
-${dayDescriptions}
-
-CREA l'itinerario migliore della mia vita! ✨`;
-
-    const response = await fetch(DEEPSEEK_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 8000,
-        temperature: 0.95,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('DeepSeek API error:', response.status, errText);
-      return res.status(502).json({ error: 'DeepSeek API error', detail: errText });
-    }
-
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || '';
-
-    // Extract JSON
-    try {
-      const jsonMatch = reply.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : reply;
-      const itinerary = JSON.parse(jsonStr);
-      res.json(itinerary);
-    } catch {
-      // Return the raw text and the generated days count
-      res.json({
-        days: [],
-        raw: reply,
-        error: 'JSON parse failed',
-        totalDays,
-        destination,
-        themes: themes
-      });
-    }
-  } catch (err) {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+REGOLE:
+- CONSIGLI UTILI E CONCRETI: meteo nel periodo, cosa mettere in valigia, trasporti locali, piatti da assaggiare, etichetta, sicurezza, app utili, orari migliori per le attrazioni del piano
+- Niente frasi generiche ("bevi acqua", "porta la fotocamera") — sempre specifici alla destinazione
+- Italiano naturale`;
+}

@@ -144,7 +144,7 @@ module.exports = withAuth(async function handler(req, res) {
       });
     }
 
-    // DeepSeek parses extracted text
+    // DeepSeek parses extracted text — TYPE-AWARE (hotel / flight / event)
     const response = await fetch(DEEPSEEK_API, {
       method: 'POST',
       headers: {
@@ -156,19 +156,47 @@ module.exports = withAuth(async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: `You are a travel booking parser. Extract structured information from the booking confirmation text below.
-Return ONLY valid JSON with these fields:
+            content: `You are a travel document parser. Analyze the booking confirmation text and determine its TYPE, then extract the relevant fields.
+
+Return ONLY valid JSON with this structure:
 {
-  "destination": "City, Country",
-  "checkIn": "Aug 22",
-  "checkOut": "Aug 28",
-  "hotel": "Hotel or property name",
+  "type": "hotel" | "flight" | "event",
+  "destination": "City, Country — for flights: arrival city; for events: city where the event takes place",
+  "checkIn": "Arrival/first day, e.g. Aug 22",
+  "checkOut": "Departure/last day, e.g. Aug 28 — null for one-day events",
   "confirmation": "Booking reference number",
-  "guests": "Number of guests if visible",
-  "guestNames": "Array of guest names if visible, e.g. [\"Mario Rossi\", \"Giulia Bianchi\"]",
-  "notes": "Any other useful info"
+  "guests": "Number of people if visible, else null",
+  "guestNames": "Array of guest/passenger names if visible, else null",
+  "hotel": "For HOTEL: property name. For FLIGHT: airline + flight number. For EVENT: venue name. null if not applicable",
+  "notes": "Any other useful info",
+  "flight": {
+    "flightNumber": "e.g. FR 2345 or null",
+    "airline": "e.g. Ryanair or null",
+    "departureAirport": "IATA code or city, e.g. BGY or null",
+    "arrivalAirport": "e.g. CRL or null",
+    "departureTime": "e.g. 14:35 or null",
+    "arrivalTime": "e.g. 16:10 or null",
+    "departureDate": "e.g. Aug 22 or null",
+    "arrivalDate": "e.g. Aug 22 or null",
+    "terminal": "e.g. T2 or null",
+    "gate": "e.g. B14 or null"
+  },
+  "event": {
+    "eventName": "e.g. Sagrada Familia, Primavera Sound 2026, Uffizi Museum",
+    "eventDate": "e.g. Aug 24 or null",
+    "eventTime": "e.g. 10:00 or null",
+    "venue": "e.g. Park Güell or null",
+    "ticketType": "e.g. Full, VIP, Adult or null",
+    "ticketCount": "number of tickets or null"
+  }
 }
-If you cannot determine a field, use your best guess. Never return null — always return at least the destination.`,
+
+Rules:
+- TYPE is the most important decision. Hotels mention rooms, check-in/out, nights. Flights mention airports, flight numbers, gates, boarding. Events mention museums, concerts, festivals, tickets, dates.
+- For flights, "hotel" field = airline + flight number (e.g. "Ryanair FR2345").
+- If it's a flight with a hotel too (holiday package), type stays "hotel" but include the flight info in the flight object.
+- Never return null for destination — best guess always.
+- If a field is not visible, use null (not empty string).`,
           },
           {
             role: 'user',
