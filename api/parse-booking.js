@@ -100,6 +100,14 @@ export default withAuth(async function handler(req, res) {
     const finalValidation = parsedBookingSchema.safeParse(parsed);
     if (!finalValidation.success) {
       console.error('Output validation failed:', finalValidation.error.flatten());
+      // Return the raw parsed data anyway — a validation warning must never
+      // drop the booking fields the user needs (this caused empty responses).
+      return res.status(200).json({
+        ...parsed,
+        pages: imageCount,
+        _ocrProvider: extractedText === ocrText ? 'provided' : 'auto',
+        _validationWarnings: finalValidation.error.flatten().fieldErrors,
+      });
     }
 
     return res.status(200).json({
