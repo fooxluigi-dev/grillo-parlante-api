@@ -1,12 +1,12 @@
 // Vercel Serverless Function — Chat with Grillo (DeepSeek) + history persistence
-// POST /api/chat
+// POST /api/v1/chat
 // Body: { messages: [{role, content}], tripContext: string, tripId: string }
 // Uses chat history from Supabase for context
 
 import fetch from 'node-fetch';
-import { withAuth } from '../lib/auth.js';
-import { saveChatMessage, getRecentChatContext } from '../lib/chat.js';
-import { chatInputSchema } from '../lib/schemas/index.js';
+import { withAuth } from '../../lib/auth.js';
+import { saveChatMessage, getRecentChatContext } from '../../lib/chat.js';
+import { chatInputSchema } from '../../lib/schemas/index.js';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 

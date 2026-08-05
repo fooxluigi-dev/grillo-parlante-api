@@ -1,13 +1,13 @@
 // API endpoint: parse booking confirmation images using OCR + AI
-// POST /api/parse-booking
+// POST /api/v1/parse-booking
 // Body: { images: string[] } — array of base64 data URLs
 // Uses GPT-4o vision (primary) → OCR.space (fallback) for text extraction + DeepSeek for parsing
 
 import fetch from 'node-fetch';
-import { withAuth } from '../lib/auth.js';
-import { extractTextFromImages } from '../lib/ocr/index.js';
-import { parseBookingWithDeepSeek } from '../lib/parsing/index.js';
-import { parseBookingInputSchema, parsedBookingSchema } from '../lib/schemas/index.js';
+import { withAuth } from '../../lib/auth.js';
+import { extractTextFromImages } from '../../lib/ocr/index.js';
+import { parseBookingWithDeepSeek } from '../../lib/parsing/index.js';
+import { parseBookingInputSchema, parsedBookingSchema } from '../../lib/schemas/index.js';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 

@@ -7,7 +7,7 @@
 //   3. Parallel tips call → personalized advice for the whole trip
 // All parallel calls run concurrently → total ≈ max(single call) ≈ 20-30s
 import fetch from 'node-fetch';
-import { withAuth } from '../lib/auth.js';
+import { withAuth } from '../../lib/auth.js';
 import { parse, isValid } from 'date-fns';
 import { it } from 'date-fns/locale';
 

@@ -1,16 +1,37 @@
 {
   "functions": {
-    "api/chat.js": {
-      "maxDuration": 30
-    },
-    "api/itinerary.js": {
+    "api/index.js": {
       "maxDuration": 60
     },
-    "api/parse-booking.js": {
+    "api/v1/parse-booking.js": {
       "maxDuration": 30
     },
-    "api/test-gemini.js": {
+    "api/v1/itinerary.js": {
+      "maxDuration": 60
+    },
+    "api/v1/chat.js": {
       "maxDuration": 30
+    },
+    "api/v1/trips.js": {
+      "maxDuration": 30
+    },
+    "api/v1/health.js": {
+      "maxDuration": 10
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-API-Version",
+          "value": "v1"
+        },
+        {
+          "key": "X-API-Deprecated",
+          "value": "Use /api/v1/ instead"
+        }
+      ]
+    }
+  ]
 }

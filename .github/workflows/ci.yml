@@ -1,0 +1,89 @@
+name: API CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check (Node.js --check)
+        run: |
+          node --check api/parse-booking.js
+          node --check api/itinerary.js
+          node --check api/chat.js
+          node --check api/trips.js
+          node --check lib/auth.js
+          node --check lib/ocr/index.js
+          node --check lib/ocr/gpt4o.js
+          node --check lib/ocr/ocrspace.js
+          node --check lib/parsing/deepseek.js
+          node --check lib/parsing/index.js
+          node --check lib/schemas/index.js
+          echo "✅ All API files pass syntax check"
+
+      - name: Verify package.json has required fields
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const required = ['name', 'version', 'main', 'type', 'dependencies'];
+            for (const field of required) {
+              if (!pkg[field]) {
+                console.error('❌ Missing required field:', field);
+                process.exit(1);
+              }
+            }
+            if (pkg.type !== 'module') {
+              console.error('❌ type must be \"module\"');
+              process.exit(1);
+            }
+            const deps = ['sharp', 'date-fns', 'zod', 'node-fetch'];
+            for (const dep of deps) {
+              if (!pkg.dependencies?.[dep]) {
+                console.error('❌ Missing dependency:', dep);
+                process.exit(1);
+              }
+            }
+            console.log('✅ package.json validation passed');
+          "
+
+      - name: Check for required environment variables (documentation)
+        run: |
+          echo "Required env vars for production:"
+          echo "  DEEPSEEK_API_KEY"
+          echo "  OPENAI_API_KEY"
+          echo "  OCR_SPACE_API_KEY"
+          echo "  EXPO_PUBLIC_SUPABASE_ANON_KEY"
+          echo "  EXPO_PUBLIC_API_URL (frontend)"
+
+  # Optional: Deploy preview to Vercel on PR
+  deploy-preview:
+    needs: lint-and-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel Preview
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
