@@ -3,6 +3,15 @@
     "api/index.js": {
       "maxDuration": 60
     },
+    "api/parse-booking.js": {
+      "maxDuration": 30
+    },
+    "api/itinerary.js": {
+      "maxDuration": 60
+    },
+    "api/chat.js": {
+      "maxDuration": 30
+    },
     "api/v1/parse-booking.js": {
       "maxDuration": 30
     },
