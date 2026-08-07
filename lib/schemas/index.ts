@@ -49,7 +49,7 @@ export type ParsedBooking = z.infer<typeof parsedBookingSchema>;
 // Input validation schemas
 export const parseBookingInputSchema = z.object({
   // Validate as data URLs with custom regex
-  images: z.array(z.string().regex(/^data:image\/[a-z]+;base64,/)).min(1, 'At least one image required').optional(),
+  images: z.array(z.string().regex(/^data:image\/[a-z]+;base64,/)).min(1, 'At least one image required').max(3, 'Max 3 images allowed').optional(),
   ocrText: z.string().optional(),
 });
 
