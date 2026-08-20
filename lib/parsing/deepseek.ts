@@ -36,7 +36,17 @@ Return ONLY valid JSON with this structure:
     "venue": "e.g. Park Güell or null",
     "ticketType": "e.g. Full, VIP, Adult or null",
     "ticketCount": "number of tickets or null"
-  }
+  },
+  "extraEvents": [
+    {
+      "eventName": "Secondary events in the SAME upload (e.g. excursion/museum/concert tickets uploaded alongside the main booking)",
+      "eventDate": "e.g. Aug 26 or null",
+      "eventTime": "e.g. 15:00 or null",
+      "venue": "e.g. Krka National Park or null",
+      "ticketType": "e.g. Adult or null",
+      "ticketCount": "e.g. 2 or null"
+    }
+  ]
 }
 
 Rules:
@@ -44,7 +54,10 @@ Rules:
 - For flights, "hotel" field = airline + flight number (e.g. "Ryanair FR2345").
 - If it's a flight with a hotel too (holiday package), type stays "hotel" but include the flight info in the flight object.
 - Never return null for destination — best guess always.
-- If a field is not visible, use null (not empty string).`;
+- If a field is not visible, use null (not empty string).
+- If the upload contains MULTIPLE bookings (e.g. a hotel plus separate excursion/museum/concert tickets), type = the MAIN booking and list the other events in "extraEvents" (max 5). If the only booking is an event, type = "event" and leave extraEvents as [].
+- For events: destination = the event's city if visible; if the ticket shows no city, use the venue name — never "Unknown".
+- Events in extraEvents must NOT repeat the main event object.`;
 
 export interface DeepSeekParseResult {
   data: ParsedBooking | null;
@@ -73,7 +86,7 @@ export async function parseBookingWithDeepSeek(
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Booking text:\n${extractedText}\n\nExtract the booking info as JSON.` },
         ],
-        max_tokens: 1024,
+        max_tokens: 1600,
         temperature: 0.1,
       }),
     });

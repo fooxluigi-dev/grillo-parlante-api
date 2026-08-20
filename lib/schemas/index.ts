@@ -37,10 +37,14 @@ const eventSchema = z.object({
   ticketCount: z.union([z.string(), z.number()]).nullable(),
 });
 
+// Secondary events detected in mixed uploads (e.g. hotel + excursion tickets)
+const extraEventSchema = eventSchema;
+
 // Complete parsed booking schema
 export const parsedBookingSchema = baseBookingSchema.extend({
-  flight: flightSchema,
-  event: eventSchema,
+  flight: flightSchema.nullable().optional(),
+  event: eventSchema.nullable().optional(),
+  extraEvents: z.array(extraEventSchema).nullable().optional(),
 });
 
 // Type inference
