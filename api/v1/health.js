@@ -18,10 +18,11 @@ async function checkSupabase() {
 }
 
 async function checkDeepSeek() {
-  const key = process.env.DEEPSEEK_API_KEY;
+  const key = process.env.OPENROUTER_API_KEY || process.env.DEEPSEEK_API_KEY;
   if (!key) return { status: 'unconfigured', detail: 'No API key' };
   try {
-    const resp = await fetch('https://api.deepseek.com/v1/models', {
+    const modelsUrl = process.env.OPENROUTER_API_KEY ? 'https://openrouter.ai/api/v1/models' : 'https://api.deepseek.com/v1/models';
+    const resp = await fetch(modelsUrl, {
       headers: { Authorization: `Bearer ${key}` },
     });
     return { status: resp.ok ? 'healthy' : 'degraded', httpStatus: resp.status };

@@ -11,14 +11,15 @@ import { withAuth } from '../../lib/auth.js';
 import { parse, isValid } from 'date-fns';
 import { it } from 'date-fns/locale';
 
-const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const LLM_BASE = process.env.OPENROUTER_API_KEY ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.deepseek.com/v1/chat/completions';
+const LLM_MODEL = process.env.OPENROUTER_API_KEY ? 'deepseek/deepseek-v4-flash-0731' : 'deepseek-chat';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'DeepSeek API key not configured' });
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'LLM API key not configured' });
 
   try {
     const { destination, checkIn, checkOut, hotel, preferences, type } = req.body;
@@ -105,7 +106,7 @@ REGOLE:
 - Se il desiderio esiste, i giorni devono contribuire a realizzarlo
 - Tutto in italiano`;
 
-    const plannerResp = await callDeepSeek(apiKey, plannerPrompt, 1200, 0.8);
+    const plannerResp = await callDeepSeek(apiKey, plannerPrompt, 1600, 0.8);
     let dayThemes = [];
     try {
       const arr = extractJson(plannerResp);
@@ -131,13 +132,13 @@ REGOLE:
         destination, hotel, styleText, vibeText, interestText, wish, bookingType,
         dayNum: theme.day, totalDays, dateLabel: dateLabels[theme.day - 1],
         label: theme.label, location: theme.location || '',
-      }), 1500, 0.9)
+      }), 2000, 0.9)
     );
     // Tips call runs in parallel with the days
     const tipsPromise = callDeepSeek(apiKey, buildTipsPrompt({
       destination, hotel, styleText, vibeText, interestText, wish, bookingType,
       totalDays, dateLabels, dayThemes
-    }), 1200, 0.8);
+    }), 1600, 0.8);
 
     const results = await Promise.all([...dayPromises, tipsPromise]);
     const dayReplies = results.slice(0, totalDays);
@@ -200,14 +201,14 @@ REGOLE:
 // ── Helpers ──
 
 async function callDeepSeek(apiKey, systemPrompt, maxTokens, temperature) {
-  const response = await fetch(DEEPSEEK_API, {
+  const response = await fetch(LLM_BASE, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: LLM_MODEL,
       messages: [{ role: 'system', content: systemPrompt }],
       max_tokens: maxTokens,
       temperature,

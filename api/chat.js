@@ -8,14 +8,15 @@ import { withAuth } from '../lib/auth.js';
 import { saveChatMessage, getRecentChatContext } from '../lib/chat.js';
 import { chatInputSchema } from '../lib/schemas/index.js';
 
-const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const LLM_BASE = process.env.OPENROUTER_API_KEY ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.deepseek.com/v1/chat/completions';
+const LLM_MODEL = process.env.OPENROUTER_API_KEY ? 'deepseek/deepseek-v4-flash-0731' : 'deepseek-chat';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'DeepSeek API key not configured' });
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'LLM API key not configured' });
 
   const user = req.user;
   if (!user) {
@@ -53,17 +54,17 @@ Rispondi in italiano, in modo amichevole, conciso e utile. Usa emoji occasionalm
     ];
 
     // Call DeepSeek
-    const response = await fetch(DEEPSEEK_API, {
+    const response = await fetch(LLM_BASE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: LLM_MODEL,
         messages: allMessages,
         temperature: 0.85,
-        max_tokens: 1024,
+        max_tokens: 2048,
       }),
     });
 
