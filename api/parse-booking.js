@@ -14,7 +14,7 @@ const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const DEEPSEEK_KEY = process.env.OPENROUTER_API_KEY || process.env.DEEPSEEK_API_KEY;
+  const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   const OCR_KEY = process.env.OCR_SPACE_API_KEY || 'helloworld';
 
